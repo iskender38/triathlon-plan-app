@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olympic Triathlon Plan (2:30 Goal)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a clean, dark training app aesthetic */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212; /* Dark background */
+        }
+        .card {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+        .zone-tag {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        .modal-content {
+            background-color: #1f2937; /* Slightly lighter dark gray for modal */
+        }
+        .llm-button {
+            transition: background-color 0.15s, transform 0.15s;
+        }
+        .llm-button:hover:not(:disabled) {
+            background-color: #34d399; /* light green hover for tune-up */
+            transform: translateY(-1px);
+        }
+        .recovery-button:hover:not(:disabled) {
+            background-color: #fcd34d; /* light yellow hover for recovery */
+            transform: translateY(-1px);
+        }
+        .llm-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6">
+
+    <!-- Header -->
+    <header class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-green-400">Project < 2:30 Olympic Tri</h1>
+        <p class="text-gray-400 text-sm mt-1">Integrated Plan for June Race (8-10 Hours/Week)</p>
+        <div id="loadingIndicator" class="hidden text-green-400 mt-2">Loading...</div>
+    </header>
+
+    <!-- Weekly Schedule Cards Container -->
+    <div id="schedule-container" class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <!-- Cards will be injected here by JavaScript -->
+    </div>
+
+    <!-- Workout Detail Modal (Hidden by default) -->
+    <div id="detail-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden p-4 overflow-y-auto">
+        <div class="flex items-start justify-center min-h-screen">
+            <div id="modal-content-area" class="modal-content w-full max-w-2xl mt-8 p-6 rounded-xl shadow-2xl transform transition-all duration-300">
+                
+                <!-- Close Button -->
+                <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-green-400 text-3xl font-light">&times;</button>
+                
+                <h2 id="modal-day" class="text-2xl font-bold mb-2 text-green-400"></h2>
+                <h3 id="modal-workout" class="text-xl font-semibold mb-4 text-gray-200"></h3>
+
+                <!-- Workout Summary -->
+                <div class="mb-6">
+                    <p class="text-gray-400 mb-1"><span class="font-bold text-green-400">Duration:</span> <span id="modal-duration"></span></p>
+                    <p class="text-gray-400"><span class="font-bold text-green-400">Focus:</span> <span id="modal-focus"></span></p>
+                </div>
+                
+                <hr class="border-gray-700 mb-6">
+
+                <!-- Swim Details -->
+                <div id="swim-section" class="mb-6 hidden">
+                    <h4 class="text-lg font-bold text-blue-400 mb-3">🏊 Swim Workout Details</h4>
+                    <pre id="modal-swim" class="bg-gray-800 p-3 rounded-lg text-sm text-gray-300 whitespace-pre-wrap"></pre>
+                </div>
+
+                <!-- Bike Details -->
+                <div id="bike-section" class="mb-6 hidden">
+                    <h4 class="text-lg font-bold text-yellow-400 mb-3">🚴 Bike Workout Details (Trainer Focus)</h4>
+                    <pre id="modal-bike" class="bg-gray-800 p-3 rounded-lg text-sm text-gray-300 whitespace-pre-wrap"></pre>
+                </div>
+
+                <!-- Run Details -->
+                <div id="run-section" class="mb-6 hidden">
+                    <h4 class="text-lg font-bold text-red-400 mb-3">🏃 Run Workout Details</h4>
+                    <pre id="modal-run" class="bg-gray-800 p-3 rounded-lg text-sm text-gray-300 whitespace-pre-wrap"></pre>
+                </div>
+
+                <!-- Strength Details -->
+                <div id="strength-section" class="mb-6 hidden">
+                    <h4 class="text-lg font-bold text-orange-400 mb-3">💪 Strength & Conditioning Focus</h4>
+                    <pre id="modal-strength" class="bg-gray-800 p-3 rounded-lg text-sm text-gray-300 whitespace-pre-wrap"></pre>
+                </div>
+
+                <!-- Mobility Details -->
+                <div id="mobility-section" class="mb-6 hidden">
+                    <h4 class="text-lg font-bold text-purple-400 mb-3">🤸 Mobility & Recovery Focus</h4>
+                    <p id="modal-mobility" class="text-gray-300"></p>
+                </div>
+                
+                <!-- Gemini LLM Feature 1: Training Tune-Up -->
+                <div class="mb-6 border-t border-gray-700 pt-6">
+                    <h4 class="text-2xl font-extrabold text-white mb-4 flex items-center">
+                        Training Tune-Up ✨ (Pre-Session)
+                    </h4>
+                    <p class="text-sm text-gray-400 mb-3">Ask your AI Coach for adaptive advice on this specific workout (e.g., "I feel sore, what's a safe adjustment?", or "Best pre-workout snack?").</p>
+
+                    <input type="text" id="tune-up-input" placeholder="How should I adapt this session if I only have 30 minutes?" 
+                           class="w-full p-3 mb-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:ring-green-500 focus:border-green-500 border border-gray-600">
+                    
+                    <button id="tune-up-button" onclick="generateAdvice()" class="llm-button w-full py-2 bg-green-500 text-gray-900 rounded-lg font-semibold transition duration-150">
+                        Get Coaching Advice
+                    </button>
+
+                    <div id="tune-up-output-area" class="mt-4 p-4 rounded-lg bg-gray-700 hidden">
+                        <p id="tune-up-loading" class="text-yellow-400 text-center hidden">Consulting the Exercise Physiologist...</p>
+                        <p id="tune-up-response" class="text-gray-200 whitespace-pre-wrap"></p>
+                        <div id="tune-up-sources" class="mt-3 text-xs text-gray-400"></div>
+                    </div>
+                </div>
+
+                <!-- Gemini LLM Feature 2: Post-Workout Recovery Plan -->
+                <div class="mb-6 border-t border-gray-700 pt-6">
+                    <h4 class="text-2xl font-extrabold text-white mb-4 flex items-center">
+                        Post-Workout Recovery Plan ✨ (Post-Session)
+                    </h4>
+                    <p class="text-sm text-gray-400 mb-3">Tell your AI Coach how the session went (e.g., "I bonked, I feel tight, or I PR'd") to get specific nutrition and mobility advice.</p>
+
+                    <input type="text" id="recovery-input" placeholder="I finished strong but my calves are screaming." 
+                           class="w-full p-3 mb-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:ring-yellow-500 focus:border-yellow-500 border border-gray-600">
+                    
+                    <button id="recovery-button" onclick="generateRecoveryPlan()" class="llm-button recovery-button w-full py-2 bg-yellow-500 text-gray-900 rounded-lg font-semibold transition duration-150">
+                        Get Recovery Advice
+                    </button>
+
+                    <div id="recovery-output-area" class="mt-4 p-4 rounded-lg bg-gray-700 hidden">
+                        <p id="recovery-loading" class="text-yellow-400 text-center hidden">Generating Recovery Protocol...</p>
+                        <p id="recovery-response" class="text-gray-200 whitespace-pre-wrap"></p>
+                        <div id="recovery-sources" class="mt-3 text-xs text-gray-400"></div>
+                    </div>
+                </div>
+
+                <button onclick="closeModal()" class="w-full mt-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition duration-150">Got It / Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Gemini API Setup ---
+        const apiKey = ""; // API key will be provided by the environment
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // Utility for robust API calls with exponential backoff
+        async function fetchWithBackoff(url, options, maxRetries = 5, delay = 1000) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2; // Exponential backoff
+                        continue;
+                    }
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+        }
+        
+        // --- Training Plan Data (Embedded) ---
+        const planData = {
+            'Monday': {
+                day: 'Monday',
+                icon: '🏊',
+                workout: 'Swim Endurance',
+                duration: '60 min',
+                zone: 'Z2/Z3',
+                focus: 'Pacing Consistency (1:50-1:55/100m)',
+                context: "Olympic Goal Triathlon Plan. Current phase is Base. The workout is a 60-minute Z3 Swim Endurance session focusing on 4x200m repeats at 1:50-1:55/100m pace.",
+                swimDetails: `
+**Warm-up:** 200m Easy + 4 x 50m (25 build, 25 easy kick)
+**Drill Set:** 4 x 75m: (25 Fingertip Drag / 25 Catch-up Drill / 25 Swim) Rest 10s
+**Main Set:** 4 x 200m @ Z3/Threshold with 30s rest. (Target same time for all 200s)
+**Speed:** 4 x 50m Hard (10s rest)
+**Cool-down:** 200m Mixed Easy.
+`
+            },
+            'Tuesday': {
+                day: 'Tuesday',
+                icon: '🚴🏃',
+                workout: 'Brick: Bike Power Intervals + Run',
+                duration: '45 min Bike / 15 min Run',
+                zone: 'Bike: Z4/Z5 (Threshold); Run: Z3 (Tempo)',
+                focus: 'Raise FTP and practice T2 transition fatigue.',
+                context: "Olympic Goal Triathlon Plan. Current phase is Base/Build. The workout is a 45-minute high-intensity Bike Power session (3x10 min Z4 intervals) on a trainer, immediately followed by a 15-minute Z3 Brick Run.",
+                bikeDetails: `
+**Warm-up (10 min):** Easy spin + 3 x 1 min @ 95 RPM.
+**Main Set:** 3 x 10 Minute Sustained Threshold Intervals (Target: 91-105% FTP).
+**Recovery:** 5 minutes easy spin between intervals.
+**Cool-down:** 10 min easy spin.
+`,
+                runDetails: `
+**Brick Run:** Transition in < 3 minutes.
+**Run:** 15 min @ Z3 Tempo (Race pace effort - practice running tall and efficient).
+`
+            },
+            'Wednesday': {
+                day: 'Wednesday',
+                icon: '💪🏊',
+                workout: 'Strength & Swim Technique',
+                duration: '60 min Gym / 45 min Swim',
+                zone: 'Controlled / Z1/Z2',
+                focus: 'Power Transfer, Core Stability, and Swim Form.',
+                context: "Olympic Goal Triathlon Plan. The workout is a 60-minute Functional Strength & Conditioning session focusing on compound lifts (Squats, RDLs) and core, followed by a 45-minute Z1/Z2 swim technique session.",
+                strengthDetails: `
+**1. Barbell Back Squats:** 3 sets of 8 (Rest 90s) - *Focus: Drive through hips.*
+**2. Single-Leg Romanian Deadlift (SLRDL):** 3 sets of 8 per leg (Rest 60s) - *Focus: Glute/Hamstring/Stability.*
+**3. Bent-Over Barbell Row:** 3 sets of 10 (Rest 60s) - *Focus: Swim Pull strength.*
+**4. Kettlebell Swings:** 3 sets of 15 (Rest 45s) - *Focus: Explosive Hip Power.*
+**5. Core: Side Plank:** 3 sets of 30-60 seconds per side (Rest 30s) - *Focus: Anti-Lateral Flexion.*
+`,
+                swimDetails: `
+**Swim (45 min):** Focused on Drills and Technique.
+* 500m mixed drills (Kickboard, Sculling, Single-arm)
+* 20 x 25m Easy swim, focusing purely on high elbow catch and hip rotation. Rest 15s.
+* 200m cool down.
+`
+            },
+            'Thursday': {
+                day: 'Thursday',
+                icon: '🏃',
+                workout: 'Run Threshold Intervals',
+                duration: '60 min',
+                zone: 'Z4',
+                focus: 'Increase speed endurance (Target 4:45/km pace).',
+                context: "Olympic Goal Triathlon Plan. Current phase is Base/Build. The workout is a 60-minute Z4 Run Threshold session focusing on 6x800m Repeats at 4:45/km pace.",
+                runDetails: `
+**Warm-up (10 min):** Easy jog + 4 x 100m strides.
+**Main Set:** 6 x 800m Repeats (Target: 4:45/km Pace).
+**Recovery:** 400m easy jog between repeats.
+**Cool-down (10 min):** Very easy jog + static stretching.
+`
+            },
+            'Friday': {
+                day: 'Friday',
+                icon: '🧘',
+                workout: 'FULL REST & Mobility',
+                duration: '30 min',
+                zone: 'RPE 1-2',
+                focus: 'Mental and physical break. Proactive recovery.',
+                context: "Olympic Goal Triathlon Plan. The workout is a dedicated 30-minute Mobility and FULL REST session. User's overall goal is sub 2:30 Olympic distance.",
+                mobilityDetails: `
+**30 minutes of dedicated mobility:**
+* Foam rolling (Quads, Hamstrings, Glutes).
+* Deep lunges and hip flexor stretches (3 x 60s per side).
+* Glute bridges (activate the glutes).
+* Thoracic spine rotation exercises (counteract bike hunch).
+**MANDATE:** No running, swimming, or cycling today. Rest is adaptation.
+`
+            },
+            'Saturday': {
+                day: 'Saturday',
+                icon: '🚴🏃',
+                workout: 'Long Bike + Short Brick Run',
+                duration: '1h 30m Bike / 15 min Run',
+                zone: 'Z2 (Aerobic Endurance)',
+                focus: 'Build durability and practice race fueling/hydration.',
+                context: "Olympic Goal Triathlon Plan. The workout is a 1.5-hour Z2 Long Bike session (on gravel bike outdoors), followed by a 15-minute Z2 Brick Run. Focus is aerobic durability and fueling practice.",
+                bikeDetails: `
+**Long Bike (Gravel):** 1.5 hours steady Z2 effort.
+**Key Focus:** Maintain a conversational pace (Z2). Practice consuming 30-60g of carbohydrates per hour (e.g., bar, gel, drink mix).
+`,
+                runDetails: `
+**Brick Run:** Transition immediately.
+**Run:** 15 min @ Z2 Easy pace. Focus on getting blood flow to the legs and maintaining good, light form.
+`
+            },
+            'Sunday': {
+                day: 'Sunday',
+                icon: '🏃',
+                workout: 'Long Run',
+                duration: '1h 15m',
+                zone: 'Z2 (Aerobic Endurance)',
+                focus: 'Sustainably build weekly run volume and aerobic base.',
+                context: "Olympic Goal Triathlon Plan. The workout is a 1 hour 15 minute Z2 Long Run session. Focus is sustained aerobic volume and efficient form.",
+                runDetails: `
+**Long Run:** 1 hour 15 minutes.
+**Pacing:** Must be Z2 (conversational pace). If heart rate creeps too high, slow down or walk briefly.
+**Goal:** Finish feeling strong, not totally drained. Use this to reinforce endurance and efficient form.
+`
+            }
+        };
+
+        let currentDayContext = "";
+
+        // --- JavaScript Logic ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSchedule();
+        });
+
+        function renderSchedule() {
+            const container = document.getElementById('schedule-container');
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            
+            days.forEach(dayName => {
+                const dayData = planData[dayName];
+                
+                let zoneColor = 'bg-gray-700';
+                if (dayData.zone.includes('Z4') || dayData.zone.includes('Z5')) {
+                    zoneColor = 'bg-red-500';
+                } else if (dayData.zone.includes('Z2')) {
+                    zoneColor = 'bg-blue-500';
+                } else if (dayName === 'Friday') {
+                    zoneColor = 'bg-purple-500';
+                }
+
+                const cardHTML = `
+                    <div class="card bg-gray-800 p-5 rounded-xl shadow-lg flex flex-col justify-between" onclick="showDetails('${dayName}')">
+                        <div>
+                            <div class="text-xs font-bold uppercase text-gray-400">${dayData.day}</div>
+                            <h4 class="text-xl font-semibold text-white mt-1 mb-3 flex items-center">
+                                ${dayData.icon} <span class="ml-2">${dayData.workout}</span>
+                            </h4>
+                            <p class="text-sm text-gray-300">${dayData.focus}</p>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <span class="text-sm text-green-400 font-medium">${dayData.duration}</span>
+                            <span class="zone-tag ${zoneColor} text-white">${dayData.zone}</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHTML;
+            });
+        }
+
+        function showDetails(dayName) {
+            const data = planData[dayName];
+            
+            // Set global context for LLM
+            currentDayContext = data.context;
+
+            // Reset LLM output areas
+            document.getElementById('tune-up-input').value = "";
+            document.getElementById('tune-up-output-area').classList.add('hidden');
+            document.getElementById('tune-up-response').textContent = "";
+            document.getElementById('tune-up-sources').innerHTML = "";
+            
+            document.getElementById('recovery-input').value = "";
+            document.getElementById('recovery-output-area').classList.add('hidden');
+            document.getElementById('recovery-response').textContent = "";
+            document.getElementById('recovery-sources').innerHTML = "";
+
+            // Update Modal Content
+            document.getElementById('modal-day').textContent = data.day;
+            document.getElementById('modal-workout').textContent = data.workout;
+            document.getElementById('modal-duration').textContent = data.duration;
+            document.getElementById('modal-focus').textContent = data.focus;
+
+            // Hide all specific sections first
+            document.getElementById('swim-section').classList.add('hidden');
+            document.getElementById('bike-section').classList.add('hidden');
+            document.getElementById('run-section').classList.add('hidden');
+            document.getElementById('strength-section').classList.add('hidden');
+            document.getElementById('mobility-section').classList.add('hidden');
+            
+            // Populate and show sections based on data availability
+            if (data.swimDetails) {
+                document.getElementById('modal-swim').textContent = data.swimDetails.trim();
+                document.getElementById('swim-section').classList.remove('hidden');
+            }
+            if (data.bikeDetails) {
+                document.getElementById('modal-bike').textContent = data.bikeDetails.trim();
+                document.getElementById('bike-section').classList.remove('hidden');
+            }
+            if (data.runDetails) {
+                document.getElementById('modal-run').textContent = data.runDetails.trim();
+                document.getElementById('run-section').classList.remove('hidden');
+            }
+            if (data.strengthDetails && data.strengthDetails !== 'N/A') {
+                document.getElementById('modal-strength').textContent = data.strengthDetails.trim();
+                document.getElementById('strength-section').classList.remove('hidden');
+            }
+            if (data.mobilityDetails) {
+                document.getElementById('modal-mobility').textContent = data.mobilityDetails.trim();
+                document.getElementById('mobility-section').classList.remove('hidden');
+            }
+
+            // Show Modal
+            document.getElementById('detail-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+        }
+
+        async function generateAdvice() {
+            const userQuestion = document.getElementById('tune-up-input').value.trim();
+            const outputArea = document.getElementById('tune-up-output-area');
+            const loadingIndicator = document.getElementById('tune-up-loading');
+            const responseText = document.getElementById('tune-up-response');
+            const sourcesDiv = document.getElementById('tune-up-sources');
+            const tuneUpButton = document.getElementById('tune-up-button');
+
+            if (!userQuestion) {
+                responseText.textContent = "Please ask your AI Coach a question!";
+                outputArea.classList.remove('hidden');
+                return;
+            }
+
+            // Show loading and disable button
+            outputArea.classList.remove('hidden');
+            responseText.textContent = "";
+            sourcesDiv.innerHTML = "";
+            loadingIndicator.classList.remove('hidden');
+            tuneUpButton.disabled = true;
+
+            const systemPrompt = `You are a certified Triathlon Coach and Exercise Physiologist. The user is a 29-year-old male aiming for a sub 2:30 Olympic distance triathlon, currently in the Base phase. Analyze the user's current workout context and their question. Provide a concise, professional, and evidence-based answer that gives actionable advice on modifying the session, fueling, or technique, keeping injury prevention and the main goal in mind. Do not include a conversational preamble or closing. Just provide the advice.`;
+            
+            const userQuery = `My current workout context is: "${currentDayContext}". The user asks: "${userQuestion}"`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            try {
+                const response = await fetchWithBackoff(apiUrl, options);
+                const result = await response.json();
+                
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    responseText.textContent = text;
+                    
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+
+                    if (sources.length > 0) {
+                        sourcesDiv.innerHTML = '<p class="font-semibold mt-3">Sources:</p>';
+                        sources.forEach((source, index) => {
+                            sourcesDiv.innerHTML += `<a href="${source.uri}" target="_blank" class="block text-xs hover:text-green-400 truncate">${index + 1}. ${source.title}</a>`;
+                        });
+                    }
+
+                } else {
+                    responseText.textContent = "I apologize, but I couldn't generate advice at this moment. Please try again or rephrase your question.";
+                }
+
+            } catch (error) {
+                console.error("API Call Failed:", error);
+                responseText.textContent = "An error occurred while connecting to the AI Coach. Please check your network connection and try again.";
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                tuneUpButton.disabled = false;
+            }
+        }
+
+
+        async function generateRecoveryPlan() {
+            const userFeedback = document.getElementById('recovery-input').value.trim();
+            const outputArea = document.getElementById('recovery-output-area');
+            const loadingIndicator = document.getElementById('recovery-loading');
+            const responseText = document.getElementById('recovery-response');
+            const sourcesDiv = document.getElementById('recovery-sources');
+            const recoveryButton = document.getElementById('recovery-button');
+
+            if (!userFeedback) {
+                responseText.textContent = "Please provide feedback on your session to get a tailored recovery plan.";
+                outputArea.classList.remove('hidden');
+                return;
+            }
+
+            // Show loading and disable button
+            outputArea.classList.remove('hidden');
+            responseText.textContent = "";
+            sourcesDiv.innerHTML = "";
+            loadingIndicator.classList.remove('hidden');
+            recoveryButton.disabled = true;
+
+            const systemPrompt = `You are a certified Triathlon Coach and Recovery Specialist. The user is a 29-year-old male aiming for a sub 2:30 Olympic distance triathlon. Analyze the user's current workout context and their post-session feedback. Provide a concise, professional, and evidence-based recovery plan, including: 1) Immediate nutrition advice (macros/timing). 2) Specific active recovery/mobility/stretching recommendations to address their feedback. 3) A hydration tip. Do not include a conversational preamble or closing. Just provide the recovery protocol.`;
+            
+            const userQuery = `The workout completed was: "${currentDayContext}". The user's post-session feedback is: "${userFeedback}"`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            try {
+                const response = await fetchWithBackoff(apiUrl, options);
+                const result = await response.json();
+                
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    responseText.textContent = text;
+                    
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+
+                    if (sources.length > 0) {
+                        sourcesDiv.innerHTML = '<p class="font-semibold mt-3">Sources:</p>';
+                        sources.forEach((source, index) => {
+                            sourcesDiv.innerHTML += `<a href="${source.uri}" target="_blank" class="block text-xs hover:text-green-400 truncate">${index + 1}. ${source.title}</a>`;
+                        });
+                    }
+
+                } else {
+                    responseText.textContent = "I apologize, but I couldn't generate the recovery plan at this moment. Please try again or rephrase your question.";
+                }
+
+            } catch (error) {
+                console.error("API Call Failed:", error);
+                responseText.textContent = "An error occurred while connecting to the AI Coach. Please check your network connection and try again.";
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                recoveryButton.disabled = false;
+            }
+        }
+    </script>
+
+</body>
+</html>
